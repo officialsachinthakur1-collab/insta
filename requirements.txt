@@ -1,0 +1,6 @@
+google-generativeai
+instagrapi
+playwright
+python-dotenv
+schedule
+requests
