@@ -26,14 +26,10 @@ jobs:
           pip install -r requirements.txt
           playwright install chromium
 
-      - name: Restore Chrome Profiles from Secrets
+      - name: Extract Chrome Profiles
         shell: pwsh
-        env:
-          CHROME_PROFILES_BASE64: ${{ secrets.CHROME_PROFILES_BASE64 }}
         run: |
-          # The zip file containing both chrome_profile and chrome_profile_ig is stored as base64 in secrets
-          [System.IO.File]::WriteAllBytes("profiles.zip", [System.Convert]::FromBase64String($env:CHROME_PROFILES_BASE64))
-          Expand-Archive -Path "profiles.zip" -DestinationPath "." -Force
+          Expand-Archive -Path "chrome_profiles_for_github.zip" -DestinationPath "." -Force
 
       - name: Run Bot in Headless Mode
         env:

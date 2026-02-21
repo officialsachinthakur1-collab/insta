@@ -8,8 +8,7 @@ __pycache__/
 # Chrome Profiles (Too large & sensitive, using Base64 Secrets instead)
 chrome_profile/
 chrome_profile_ig/
-chrome_profiles_for_github.zip
-profile_base64.txt
+
 
 # State and debug
 whisk_state.json
