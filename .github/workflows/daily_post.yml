@@ -36,4 +36,4 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           HEADLESS: "True"
         run: |
-          echo 1 | python main.py
+          python main.py --now

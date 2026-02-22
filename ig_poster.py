@@ -10,17 +10,23 @@ sys.stdout.reconfigure(encoding='utf-8')
 IS_HEADLESS = os.getenv("HEADLESS", "false").lower() == "true"
 
 
-def post_to_instagram(image_path: str, caption: str):
+def post_to_instagram(image_paths: list[str], caption: str):
     """
-    Logs into Instagram via browser automation and posts the image with caption.
+    Logs into Instagram via browser automation and posts multiple images as a carousel.
     """
-    if not os.path.exists(image_path):
-        print(f"[ERROR] Image path {image_path} does not exist.")
+    abs_image_paths = []
+    for path in isinstance(image_paths, str) and [image_paths] or image_paths:
+        if os.path.exists(path):
+            abs_image_paths.append(os.path.abspath(path))
+        else:
+            print(f"[WARNING] Image path {path} does not exist.")
+            
+    if not abs_image_paths:
+        print("[ERROR] No valid image paths provided.")
         return False
 
-    abs_image_path = os.path.abspath(image_path)
     print(f"Starting Instagram Browser Automation...")
-    print(f"Image path: {abs_image_path}")
+    print(f"Image paths: {abs_image_paths}")
 
     with sync_playwright() as p:
         chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
@@ -107,21 +113,66 @@ def post_to_instagram(image_path: str, caption: str):
                 print("[WARNING] Could not find 'Post' dropdown item via JS.")
             time.sleep(4)
 
-            # ── Upload image ────────────────────────────────────────────────────
-            print(f"Uploading image: {abs_image_path}")
+            # ── Upload images ───────────────────────────────────────────────────
+            print(f"Uploading {len(abs_image_paths)} images...")
             try:
                 with page.expect_file_chooser(timeout=12000) as fc_info:
                     # Direct Playwright click — must be inside the context manager
                     # Use .first to avoid strict-mode violations from multiple matches
                     page.locator("button:has-text('Select from computer')").first.click()
                 file_chooser = fc_info.value
-                file_chooser.set_files(abs_image_path)
-                print("Image file set successfully via file chooser!")
+                file_chooser.set_files(abs_image_paths)
+                print(f"Successfully uploaded {len(abs_image_paths)} images to file chooser!")
             except Exception as e:
                 print(f"File chooser failed: {e}")
                 return False
 
             time.sleep(4)
+
+            # ── Adjust Aspect Ratio to Original (prevent cropping) ──────────────
+            print("Setting Aspect Ratio to Original...")
+            page.evaluate("""
+                () => {
+                    const svgs = document.querySelectorAll("svg[aria-label='Select crop']");
+                    if (svgs.length > 0) {
+                        let el = svgs[0];
+                        for (let i = 0; i < 5; i++) {
+                            el = el.parentElement;
+                            if (el && el.tagName === 'BUTTON') { el.click(); break; }
+                        }
+                    }
+                }
+            """)
+            time.sleep(2)
+            page.evaluate("""
+                () => {
+                    const spans = document.querySelectorAll("span, div");
+                    for (const s of spans) {
+                        if (s.innerText && s.innerText.trim() === 'Original') {
+                            s.click();
+                            let el = s;
+                            for (let i = 0; i < 5; i++) {
+                                el = el.parentElement;
+                                if (el && (el.tagName === 'BUTTON' || el.tagName === 'A')) { el.click(); break; }
+                            }
+                            return;
+                        }
+                    }
+                    // Fallback to 4:5 if Original isn't found
+                    for (const s of spans) {
+                        if (s.innerText && s.innerText.trim() === '4:5') {
+                            s.click();
+                            let el = s;
+                            for (let i = 0; i < 5; i++) {
+                                el = el.parentElement;
+                                if (el && el.tagName === 'BUTTON') { el.click(); break; }
+                            }
+                            return;
+                        }
+                    }
+                }
+            """)
+            time.sleep(2)
 
             # ── Click Next (Crop screen) ──────────────────────────────────────────
             print("Clicking Next (Crop Screen)...")
@@ -218,6 +269,6 @@ def post_to_instagram(image_path: str, caption: str):
 
 
 if __name__ == "__main__":
-    test_img = "reference_image.jpg"
-    result = post_to_instagram(test_img, "Test post from bot #automation")
+    test_img = ["reference_image.jpg"]
+    result = post_to_instagram(test_img, "Test multi-post from bot #automation")
     print("Result:", result)
